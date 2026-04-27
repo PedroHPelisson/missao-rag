@@ -1,0 +1,7 @@
+__pycache__
+*.pyc
+chroma_db/
+uploads/
+frontend/node_modules
+.env
+.git

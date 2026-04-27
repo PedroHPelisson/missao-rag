@@ -5,6 +5,10 @@ from ingest_v2 import load_existing_vector_store
 from config import (
     AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, AZURE_OPENAI_DEPLOYMENT_NAME_CHAT
 )
+from langchain_community.retrievers import BM25Retriever
+from langchain_classic.retrievers import EnsembleRetriever
+from langchain_core.documents import Document
+
 conversation_history_v3 = {}
 
 def get_session_history(session_id:str):
@@ -68,11 +72,32 @@ def reformulate_query_for_company(query: str, company:str) -> str:
     return response.content.strip()
 
 def search_company_chunks(vector_store, query:str, company:str, top_k:int = 3):
-    results = vector_store.similarity_search(
-        query, 
-        k=top_k,
-        filter= {'company': company}
+    semantic_retriever = vector_store.as_retriever(
+        search_kwargs={'k': top_k, 'filter': {'company': company}}
     )
+
+    all_company_docs = vector_store.get(
+        where={'company': company},
+        include=['documents', 'metadatas']
+    )
+
+    bm25_docs = []
+    for i, doc_text in enumerate(all_company_docs['documents']):
+        metadata = all_company_docs['metadatas'][i] if all_company_docs['metadatas'] else {}
+        bm25_docs.append(Document(page_content=doc_text, metadata=metadata))
+
+    if not bm25_docs:
+        return semantic_retriever.invoke(query)
+    
+    bm25_retriever = BM25Retriever.from_documents(bm25_docs)
+    bm25_retriever.k = top_k
+
+    hybrid_retriever = EnsembleRetriever(
+        retrievers=[semantic_retriever, bm25_retriever],
+        weights=[0.4, 0.6]
+    )
+
+    results = hybrid_retriever.invoke(query)
     return results
 
 def generate_answer_for_company(query:str, company:str, chunks:list, session_id:str) -> str:

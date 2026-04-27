@@ -21,9 +21,6 @@ def load_and_split_pdf(pdf_path: str):
 
 def create_vector_store(documents):
 
-    '''if os.path.exists(VECTOR_STORE_PATH):
-        shutil.rmtree(VECTOR_STORE_PATH)'''
-
     embeddings = AzureOpenAIEmbeddings(
         azure_endpoint = AZURE_OPENAI_ENDPOINT,
         api_key = AZURE_OPENAI_API_KEY,
@@ -32,7 +29,7 @@ def create_vector_store(documents):
 
     vector_store = Chroma.from_documents(
         documents = documents,
-        embedding = embeddings
+        embedding = embeddings,
     )
 
     return vector_store
